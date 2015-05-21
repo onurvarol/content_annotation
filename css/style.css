@@ -1,0 +1,77 @@
+body {
+
+}
+
+.main {
+  padding: 20px;
+}
+
+.user_note{
+  background-color: yellow;
+}
+
+#file-drop-zone{
+  background-color: #EEEEEE;
+  font-size: xx-large;
+  vertical-align: middle;
+  text-align: center;
+  border-style: dashed;
+  border-width: 1px;
+  border-color: black;
+  height: 80%;
+  border-radius: 15px;
+  padding-top: 25%;
+}
+
+#annotation-tree{
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+#content-title{
+  background-color: #DDDDDD;
+  font-size: large;
+  font-weight: bold;
+  text-align: center;
+  border-style: solid;
+  border-width: 1px;
+  border-color: black;
+  margin-bottom: -1px;
+}
+
+#content-window{
+  background-color: #EEEEEE;
+  padding: 20px;
+  border-style: solid;
+  border-width: 1px;
+  border-color: black;
+  height: 80%;
+  overflow: auto;
+}
+
+#left-container{
+  border-style: solid;
+  border-width: 1px;
+  border-color: black;
+}
+
+#content-annotation-controller{
+  margin-top: 10px;
+}
+
+#annotation-user-input{
+  width: 100%;
+  margin-bottom: 10px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#annotation-selected-test{
+  border-style: solid;
+  border-width: 1px;
+  border-color: black;
+  background-color: yellow;
+  padding-left: 5px;
+  padding-right: 5px;
+  margin-bottom: -1px;
+}

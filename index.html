@@ -1,0 +1,427 @@
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
+    <meta name="description" content="">
+    <meta name="author" content="Onur Varol">
+    <link rel="icon" href="img/favicon.ico">
+
+    <title>Content Annotator</title>
+
+    <!-- Bootstrap core CSS -->
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+    <link href="css/colorPicker.css" rel="stylesheet"  type="text/css" />
+    <link href="js/themes/default/style.min.css" rel="stylesheet" />
+    <link href="css/style.css" rel="stylesheet">
+
+    <script src="js/jquery-1.11.3.min.js"></script>
+    <script src="js/bootstrap.min.js"></script>
+    <script src="js/jquery.colorPicker.min.js"/></script>
+    <script src="js/jstree.min.js"></script>
+
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+      <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
+
+    <script type="text/javascript">
+
+      function timeConverter(UNIX_timestamp){
+        var a = new Date(UNIX_timestamp); // Already in milisecond
+        var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        var year = a.getFullYear();
+        var month = months[a.getMonth()];
+        var date = a.getDate();
+        var hour = a.getHours();
+        var min = a.getMinutes();
+        var sec = a.getSeconds();
+        var time = month + ' ' + date + ', ' + year + ' ' + hour + ':' + min + ':' + sec ;
+        return time;
+      }
+
+      function loadContentInfo(data){
+        $('#file-drop-zone').hide();
+
+        $("#annotation-tree").jstree("destroy");
+        $('#annotation-tree').jstree({
+          "core" : {
+            "animation" : 0,
+            "check_callback" : true,
+            "themes" : { "stripes" : false, "icons":false },
+            'data' : data['tree']
+          },
+          "types" : {
+            "#" : {
+              //"max_children" : 1,
+              "max_depth" : 4,
+              "valid_children" : ["root"]
+            },
+            "root" : {
+              "icon" : "/static/3.1.1/assets/images/tree_icon.png",
+              "valid_children" : ["default"]
+            },
+            "default" : {
+              "valid_children" : ["default","file"]
+            },
+            "file" : {
+              "icon" : "glyphicon glyphicon-file",
+              "valid_children" : []
+            }
+          },
+          "plugins" : [
+            "contextmenu", "dnd", "search",
+            "state", "types", "wholerow"
+          ]
+        }).on('changed.jstree', function (e, data) {
+          var annotationData = $.parseJSON(localStorage.getItem('annotationData'));
+          $("#btn-note").hide();
+          $("#btn-annotate").hide();
+          if (data.hasOwnProperty('node')){
+            if(data.node.parent === 'notes'){
+              document.getElementById('note_' + data.node.id).scrollIntoView();
+            }
+
+            if (data.node.id in annotationData['annotations']){
+              var annotation = annotationData['annotations'][data.node.id];
+              $("#btn-edit").show();
+              $("#annotation-selected-test").html(annotation['annotation']);
+              $("#annotation-selected-test").show();
+              $("#annotation-user-input").val(annotation['user_comment']);
+              $("#annotation-selected-range").val(annotation['id']);
+              $('#color-picker').val(annotation['label']);
+              $('.colorPicker-picker').css("background-color", annotation['label']);
+            }else{
+              $("#btn-edit").hide();
+            }
+          }
+        }).on('delete_node.jstree', function (e, data) {
+          console.log(data.node.parent);
+          if (data.node.parent === 'notes'){
+            $('.' + data.node.id).empty(); // Only for notes remove content (symbol of note)
+          }else{
+            $('.' + data.node.id).contents().unwrap();
+          }
+          removeAnnotation(data.node.id);
+        });
+
+        $("#content-window").show();
+        $("#content-title").show();
+        $("#content-window").html(data['data']);
+        $("#content-title").html(data['title']);
+        $("#user-menu").show();
+        $("#user-menu-name").html(data['meta_data']['author']);
+        $("#user-menu-version").html('Version '+data['meta_data']['versions'].length);
+        $("#user-menu-lastdate").html('Last saved: '+ timeConverter(data['meta_data']['last_saved']));
+      }
+
+      function openFile(){
+        $('#hidden-file-select').trigger('click');
+      }
+
+      function handleFileSelect2(evt)
+      {
+        var files = evt.target.files;
+        if(files.length > 1)
+        {
+          alert('Drop only one file!');
+        }else{
+          var reader = new FileReader();
+          reader.onload = function (evt) {
+            //console.log(evt.target.result);
+            var annotationData = $.parseJSON(evt.target.result);
+            annotationData['meta_data']['last_opened'] = $.now();
+            localStorage.setItem('annotationData', JSON.stringify(annotationData));
+            loadContentInfo(annotationData);
+          };
+
+          reader.onerror = function (evt) {
+              alert("Error reading file");
+          }
+          reader.readAsText(files[0]);
+        }
+      }
+
+      function openSample(filename){
+        var response = $.ajax({ type: 'GET',
+                                url: filename,
+                                dataType: 'text',
+                                success: function(data) {
+                                  udata = data;
+                                },
+                                async: false
+                              }).responseText;
+        $.ajax({async: true});
+        var annotationData = $.parseJSON(response);
+        annotationData['meta_data']['last_opened'] = $.now();
+        localStorage.setItem('annotationData', JSON.stringify(annotationData));
+
+        loadContentInfo(annotationData);
+      }
+
+      function handleFileSelect(evt) {
+        evt.stopPropagation();
+        evt.preventDefault();
+
+        var files = evt.dataTransfer.files; // FileList object.
+
+        // files is a FileList of File objects. List some properties.
+        if(files.length > 1)
+        {
+          alert('Drop only one file!');
+        }else{
+          var reader = new FileReader();
+          reader.onload = function (evt) {
+            //console.log(evt.target.result);
+            var annotationData = $.parseJSON(evt.target.result);
+            annotationData['meta_data']['last_opened'] = $.now();
+            localStorage.setItem('annotationData', JSON.stringify(annotationData));
+            loadContentInfo(annotationData);
+          };
+
+          reader.onerror = function (evt) {
+              alert("Error reading file");
+          }
+          reader.readAsText(files[0]);
+          //console.log(reader.result);
+        }
+        //document.getElementById('list').innerHTML = '<ul>' + output.join('') + '</ul>';
+      }
+
+      function handleDragOver(evt) {
+        evt.stopPropagation();
+        evt.preventDefault();
+        evt.dataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
+      }
+
+      function saveAnnotation(){
+        var jsonTree = $('#annotation-tree').jstree(true).get_json('#', {flat:true});
+        var content = $('#content-window').html();
+        var timestamp = $.now();
+
+        var data = $.parseJSON(localStorage.getItem('annotationData'));
+        data['data'] = content;
+        data['tree'] = jsonTree;
+        data['meta_data']['last_saved'] = timestamp;
+        data['meta_data']['versions'].push({'opened':data['meta_data']['last_opened'],
+                                            'closed':data['meta_data']['last_saved']});
+
+        var hiddenElement = document.createElement('a');
+        hiddenElement.href = 'data:attachment/text,' + encodeURI(JSON.stringify(data));
+        hiddenElement.target = '_blank';
+        hiddenElement.download = 'annotations.json';
+        hiddenElement.click();
+      }
+
+      function addAnnotation(annotation){
+        var data = $.parseJSON(localStorage.getItem('annotationData'));
+        data['annotations'][annotation['id']] = annotation
+        localStorage.setItem('annotationData', JSON.stringify(data));
+      }
+
+      function removeAnnotation(annotationId){
+        var data = $.parseJSON(localStorage.getItem('annotationData'));
+        delete data['annotations'][annotationId]
+        localStorage.setItem('annotationData', JSON.stringify(data));
+      }
+
+      function getSelectedText() {
+        var text = "";
+        var range = '';
+        if (window.getSelection) {
+          range = window.getSelection().getRangeAt(0);
+          text = window.getSelection().toString();
+        } else if (document.selection && document.selection.type != "Control") {
+          range = document.selection.createRange();
+          text = document.selection.createRange().text;
+        }
+        return {'text':text, 'range':range};
+      }
+
+      $(document).ready(function () {
+        var dropZone = document.getElementById('file-drop-zone');
+        dropZone.addEventListener('dragover', handleDragOver, false);
+        dropZone.addEventListener('drop', handleFileSelect, false);
+
+        var fupload = document.getElementById("hidden-file-select");
+        fupload.addEventListener("change", handleFileSelect2, false);
+
+        $('#color-picker').colorPicker({pickerDefault: "0000ff",
+                                       transparency: true,
+                                       colors: ["0000ff", "ff0000", "00ff00", "ffff00", "ff00ff", "00ffff",
+                                                "7ccc63", "f2b212", "e74c3c", "2c3e50", "FF531A", "6736e0"]});
+
+        $('#content-window').mouseup(function (e){
+             var sRes = getSelectedText();
+             var selection = sRes['text'];
+             $('#annotation-user-input').val('');
+
+             if (selection.length > 0){
+               $("#btn-edit").hide();
+               $("#btn-note").show();
+               $("#btn-annotate").show();
+               $("#annotation-selected-test").html(selection);
+               $("#annotation-selected-test").show();
+               $("#annotation-selected-range").val(sRes['range']);
+             }else{
+               $("#btn-edit").hide();
+               $("#btn-note").hide();
+               $("#btn-annotate").hide();
+               $("#annotation-selected-test").empty();
+               $("#annotation-selected-test").hide();
+               $("#annotation-selected-range").empty();
+             }
+        })
+
+        //openSample();
+        $('#btn-edit').click(function(){
+          var color = $('#color-picker').val();
+          var word2annotate = $("#annotation-selected-test").html();
+          var userAnnotation = $("#annotation-user-input").val();
+          var annotationId = $("#annotation-selected-range").val();
+
+          $("." + annotationId).css({ "color": color });
+          $('#annotation-tree').jstree().rename_node(annotationId, "<span style='color:" + color + ";'>" + word2annotate +"</span>");
+
+          annotation = {'id':annotationId, 'type':'annotation',
+                        'label': color,
+                        'created_at': $.now(),
+                        'user_comment':userAnnotation,
+                        'annotation':word2annotate
+                        };
+          addAnnotation(annotation);
+        });
+
+
+        $('#btn-annotate').click(function(){
+          var color = $('#color-picker').val();
+          var word2annotate = $("#annotation-selected-test").html();
+          var userAnnotation = $("#annotation-user-input").val();
+          console.log(word2annotate);
+          console.log(userAnnotation);
+
+          var newId = $('#annotation-tree').jstree().create_node('temp' ,
+            {"text" : "<span style='color:" + color + ";'>" + word2annotate + "</span>" });
+          console.log(newId);
+
+          var changed = "<span class='annotation " + newId + "' alt='annotation_" + newId + "' style='color:" + color + ";'>" + word2annotate + "</span>";
+          var textRegex = new RegExp("\\b" + word2annotate + "\\b", 'g');
+          $("#content-window").html($("#content-window").html().replace(textRegex, changed));
+
+          annotation = {'id':newId, 'type':'annotation',
+                        'label': color,
+                        'created_at': $.now(),
+                        'user_comment':userAnnotation,
+                        'annotation':word2annotate
+                        };
+          addAnnotation(annotation);
+        });
+
+        $('#btn-note').click(function(){
+          var color = $('#color-picker').val();
+          var word2annotate = $("#annotation-selected-test").html();
+          var userAnnotation = $("#annotation-user-input").val();
+          var range = $("#annotation-selected-range").val();
+          var symbol = '&#9830;';
+
+          var newId = $('#annotation-tree').jstree().create_node('notes' ,
+            {"text" : "<span style='color:" + color + ";'>" + symbol + "</span>" });
+          $('#annotation-tree').jstree().rename_node(newId, "<span style='color:" + color + ";'>" + symbol + newId +"</span>");
+          console.log(newId);
+
+          var nnode = document.createElement('span');
+          nnode.id = 'note_' + newId;
+          nnode.className += "user_note " + newId;
+          nnode.innerHTML = symbol;
+          nnode.color = color;
+          range.insertNode(nnode);
+
+          annotation = {'id':newId, 'type':'note',
+                        'label': color,
+                        'created_at': $.now(),
+                        'user_comment': word2annotate + ': ' + userAnnotation,
+                        'annotation':symbol + newId
+                        };
+          addAnnotation(annotation);
+        });
+
+
+      });
+
+    </script>
+
+  </head>
+
+  <body>
+
+    <nav class="navbar navbar-inverse">
+        <div class="container">
+          <div class="navbar-header">
+            <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target=".navbar-collapse">
+              <span class="sr-only">Toggle navigation</span>
+              <span class="icon-bar"></span>
+              <span class="icon-bar"></span>
+              <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="#">Content Annotator</a>
+          </div>
+          <div class="navbar-collapse collapse">
+            <ul class="nav navbar-nav">
+              <li class="dropdown">
+                <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">Menu<span class="caret"></span></a>
+                <input type="file" id="hidden-file-select" style="display:none;" name="files[]" multiple />
+                <ul class="dropdown-menu" role="menu">
+                  <li><a href="#" onclick='openFile()'>Open</a></li>
+                  <li><a href="#" onclick='saveAnnotation()'>Save</a></li>
+                  <li class="divider"></li>
+                  <li class="dropdown-header">Demo with sample</li>
+                  <li><a href="#" onclick='openSample("test.json")'>Open empty sample</a></li>
+                  <li><a href="#" onclick='openSample("annotations.json")'>Open annotated sample</a></li>
+                </ul>
+              </li>
+              <li><a href="about.html">About</a></li>
+            </ul>
+            <ul id="user-menu" class="nav navbar-nav navbar-right" style="display:none;">
+              <li class="dropdown">
+                <a id="user-menu-name" href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false"><span class="caret"></span></a>
+                <ul class="dropdown-menu" role="menu">
+                  <li><a id="user-menu-version" href="#"></a></li>
+                  <li><a id="user-menu-lastdate" href="#"></a></li>
+                </ul>
+              </li>
+            </ul>
+          </div><!--/.nav-collapse -->
+        </div>
+      </nav>
+
+    <div class="container">
+      <div class="row">
+        <div id="left-container" class="col-md-3">
+          <div id="content-annotation-controller">
+            <div id="annotation-selected-test" style="display:none;"></div>
+            <div id="annotation-selected-range" style="display:none;"></div>
+            <textarea id="annotation-user-input" class="span6" rows="5" placeholder="Your annotation" required></textarea>
+
+            <button type="button" id="btn-edit" class="btn btn-xs btn-default pull-right" style="display:none;">Edit</button>
+            <button type="button" id="btn-note" class="btn btn-xs btn-default pull-right" style="display:none;">Note</button>
+            <button type="button" id="btn-annotate" class="btn btn-xs btn-default pull-right" style="display:none;">Annotate</button>
+            <input id="color-picker"></input>
+          </div>
+          <hr/>
+          <div id="annotation-tree"></div>
+        </div>
+        <div id="main-container" class="col-md-9">
+          <div id="file-drop-zone">Drop file here</div>
+          <div id="content-title" style="display:none;"></div>
+          <div id="content-window" style="display:none;"></div>
+        </div>
+        <!--
+        <div id="right-container" class="col-md-3">Annotations and others</div>
+        -->
+      </div>
+
+    </div><!-- /.container -->
+  </body>
+</html>
