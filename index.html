@@ -218,12 +218,22 @@
       function addAnnotation(annotation){
         var data = $.parseJSON(localStorage.getItem('annotationData'));
         data['annotations'][annotation['id']] = annotation
+
+        var jsonTree = $('#annotation-tree').jstree(true).get_json('#', {flat:true});
+        var content = $('#content-window').html();
+        data['data'] = content;
+        data['tree'] = jsonTree;
         localStorage.setItem('annotationData', JSON.stringify(data));
       }
 
       function removeAnnotation(annotationId){
         var data = $.parseJSON(localStorage.getItem('annotationData'));
         delete data['annotations'][annotationId]
+
+        var jsonTree = $('#annotation-tree').jstree(true).get_json('#', {flat:true});
+        var content = $('#content-window').html();
+        data['data'] = content;
+        data['tree'] = jsonTree;
         localStorage.setItem('annotationData', JSON.stringify(data));
       }
 

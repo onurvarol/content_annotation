@@ -25,7 +25,8 @@ body {
 
 #annotation-tree{
   margin-top: 10px;
-  margin-bottom: 10px;
+  height: 80%;
+  overflow: auto;
 }
 
 #content-title{
