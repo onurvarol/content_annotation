@@ -307,7 +307,7 @@
           console.log(newId);
 
           var changed = "<span class='annotation " + newId + "' alt='annotation_" + newId + "' style='color:" + color + ";'>" + word2annotate + "</span>";
-          var textRegex = new RegExp("\\b" + word2annotate, 'g');
+          var textRegex = new RegExp("\\b" + word2annotate, 'gi');
           $("#content-window").html($("#content-window").html().replace(textRegex, changed));
 
           annotation = {'id':newId, 'type':'annotation',
