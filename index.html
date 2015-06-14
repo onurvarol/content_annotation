@@ -20,6 +20,7 @@
     <script src="js/bootstrap.min.js"></script>
     <script src="js/jquery.colorPicker.min.js"/></script>
     <script src="js/jstree.min.js"></script>
+    <script src="js/FileSaver.min.js"></script>
 
     <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
     <!--[if lt IE 9]>
@@ -208,11 +209,15 @@
         data['meta_data']['versions'].push({'opened':data['meta_data']['last_opened'],
                                             'closed':data['meta_data']['last_saved']});
 
+        var blob = new Blob([JSON.stringify(data)], {type: "text/plain;charset=utf-8"});
+        saveAs(blob, "annotations.json");
+        /*
         var hiddenElement = document.createElement('a');
         hiddenElement.href = 'data:attachment/text,' + encodeURI(JSON.stringify(data));
         hiddenElement.target = '_blank';
         hiddenElement.download = 'annotations.json';
         hiddenElement.click();
+        */
       }
 
       function addAnnotation(annotation){
